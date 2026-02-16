@@ -1,7 +1,6 @@
 import streamlit as st
 from datetime import datetime
 from typing import Tuple, List, Optional
-from data.airtable_client import AirtableClient
 from utils.date_utils import get_date_range
 import pandas as pd
 

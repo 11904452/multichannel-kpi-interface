@@ -1,12 +1,12 @@
 import pandas as pd
-from data.airtable_client import AirtableClient
+from data.supabase_client import SupabaseClient
 import streamlit as st
 
 class LinkedinDataLoader:
     @staticmethod
     def get_linkedin_campaigns():
-        """Returns linkedin campaigns dataframe from Airtable"""
-        client = AirtableClient()
+        """Returns linkedin campaigns dataframe from Supabase"""
+        client = SupabaseClient()
         data = client.get_linkedin_campaigns()
         
         if not data:
@@ -32,8 +32,8 @@ class LinkedinDataLoader:
 
     @staticmethod
     def get_linkedin_leads():
-        """Returns linkedin leads dataframe from Airtable"""
-        client = AirtableClient()
+        """Returns linkedin leads dataframe from Supabase"""
+        client = SupabaseClient()
         data = client.get_linkedin_leads()
         
         if not data:
@@ -53,3 +53,9 @@ class LinkedinDataLoader:
             df['replies'] = pd.to_numeric(df['replies'], errors='coerce').fillna(0)
             
         return df
+
+    @staticmethod
+    def delete_campaign(campaign_id: str) -> bool:
+        """Deletes a campaign and its data"""
+        client = SupabaseClient()
+        return client.delete_linkedin_campaign(campaign_id)

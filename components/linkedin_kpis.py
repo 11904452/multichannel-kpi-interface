@@ -33,10 +33,34 @@ def calculate_linkedin_metrics(df):
 def render_linkedin_kpi_cards(metrics):
     """Render enhanced KPI cards for Linkedin with comprehensive metrics"""
     
-    # First Row - Primary Engagement Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
+    # First Row - Volume & Efficiency
+    col1, col2, col3, col4, col5 = st.columns(5)
+
     with col1:
+         render_custom_metric(
+             label="Sent Connections", 
+             value_primary=f"{int(metrics.get('sent_connections', 0)):,}",
+             bg_color="#FEF7E0",
+             icon="🔗"
+        )
+         
+    with col2:
+         render_custom_metric(
+             label="Sent Messages", 
+             value_primary=f"{int(metrics.get('sent_messages', 0)):,}",
+             bg_color="#E6F4EA",
+             icon="📤"
+        )
+    
+    with col3:
+         render_custom_metric(
+             label="Sent InMails", 
+             value_primary=f"{int(metrics.get('sent_inmails', 0)):,}",
+             bg_color="#FCE8E6",
+             icon="📮"
+        )
+
+    with col4:
         render_custom_metric(
             label="Acceptance Rate",
             value_primary=f"{metrics.get('acceptance_rate', 0):.2f}%",
@@ -45,16 +69,7 @@ def render_linkedin_kpi_cards(metrics):
             icon="🤝"
         )
         
-    with col2:
-        render_custom_metric(
-            label="Reply Rate",
-            value_primary=f"{metrics.get('reply_rate', 0):.2f}%",
-            value_secondary=f"{int(metrics.get('replies', 0)):,}",
-            bg_color="#E4F7FB",
-            icon="💬"
-        )
-        
-    with col3:
+    with col5:
         render_custom_metric(
             label="InMail Reply Rate",
             value_primary=f"{metrics.get('inmail_reply_rate', 0):.2f}%",
@@ -62,56 +77,54 @@ def render_linkedin_kpi_cards(metrics):
             bg_color="#F3E8FD",
             icon="📨"
         )
-
-    with col4:
-        # Calculate overall conversion rate (connections to replies)
-        total_sent = metrics.get('sent_connections', 0)
-        total_replies = metrics.get('replies', 0)
-        conversion_rate = (total_replies / total_sent * 100) if total_sent > 0 else 0
-        
-        render_custom_metric(
-            label="Overall Conversion",
-            value_primary=f"{conversion_rate:.2f}%",
-            value_secondary="Connect → Reply",
-            bg_color="#E6F4EA",
-            icon="🎯"
-        )
     
     # Second Row - Volume Metrics
-    cols2 = st.columns(4)
-    
+    cols2 = st.columns(5)
+        
     with cols2[0]:
-         render_custom_metric(
-             label="Sent Connections", 
-             value_primary=f"{int(metrics.get('sent_connections', 0)):,}",
-             bg_color="#FEF7E0",
-             icon="🔗"
+        render_custom_metric(
+            label="Reply Rate",
+            value_primary=f"{metrics.get('reply_rate', 0):.2f}%",
+            value_secondary=f"{int(metrics.get('replies', 0)):,}",
+            bg_color="#E4F7FB",
+            icon="💬"
         )
-         
+    
     with cols2[1]:
-         render_custom_metric(
-             label="Sent Messages", 
-             value_primary=f"{int(metrics.get('sent_messages', 0)):,}",
-             bg_color="#E6F4EA",
-             icon="📤"
+        render_custom_metric(
+            label="Interested Reply Rate",
+            value_primary=f"{metrics.get('interested_reply_rate', 0):.2f}%",
+            value_secondary=f"{int(metrics.get('interested', 0)):,}",
+            bg_color="#E6F4EA",
+            icon="⭐"
         )
+    
+    
     
     with cols2[2]:
-         render_custom_metric(
-             label="Sent InMails", 
-             value_primary=f"{int(metrics.get('sent_inmails', 0)):,}",
-             bg_color="#FCE8E6",
-             icon="📮"
-        )
-    
-    with cols2[3]:
-        # Calculate message-to-reply conversion
-        msg_to_reply = (metrics.get('replies', 0) / metrics.get('sent_messages', 1) * 100)
         render_custom_metric(
-            label="Message Effectiveness",
-            value_primary=f"{msg_to_reply:.1f}%",
-            value_secondary="Msg → Reply",
+            label="Revisit Reply Rate",
+            value_primary=f"{metrics.get('revisit_reply_rate', 0):.2f}%",
+            value_secondary=f"{int(metrics.get('revisit', 0)):,}",
             bg_color="#E8F0FE",
-            icon="⚡"
+            icon="🔄"
+        )
+
+    with cols2[3]:
+        render_custom_metric(
+            label="Not Interested Reply Rate",
+            value_primary=f"{metrics.get('not_interested_reply_rate', 0):.2f}%",
+            value_secondary=f"{int(metrics.get('not_interested', 0)):,}",
+            bg_color="#E8F0FE",
+            icon="🚫"
+        )
+
+    with cols2[4]:
+        render_custom_metric(
+            label="Objection Reply Rate",
+            value_primary=f"{metrics.get('objection_reply_rate', 0):.2f}%",
+            value_secondary=f"{int(metrics.get('objection', 0)):,}",
+            bg_color="#E8F0FE",
+            icon="⚠️"
         )
 

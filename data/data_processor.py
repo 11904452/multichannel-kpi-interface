@@ -7,12 +7,51 @@ class DataProcessor:
     """Handles data transformation and cleaning"""
     
     @staticmethod
+    def _normalize_columns(df: pd.DataFrame, mappings: Dict[str, str] = None):
+        """Helper to normalize column names (e.g. name -> Name)"""
+        if df.empty:
+            return df
+            
+        # Standardize to lowercase for checking, but keep original if not mapping
+        # Actually, simpler: just rename found columns if they exist
+        if mappings:
+            # Check for different casings
+            existing_cols = set(df.columns)
+            rename_map = {}
+            for target_col, variants in mappings.items():
+                if target_col in existing_cols:
+                    continue # Already exists
+                
+                for variant in variants:
+                    if variant in existing_cols:
+                        rename_map[variant] = target_col
+                        break
+            
+            if rename_map:
+                df = df.rename(columns=rename_map)
+                
+        return df
+    
+    @staticmethod
     def process_leads(leads_data: List[Dict]) -> pd.DataFrame:
         """Convert lead dictionaries to DataFrame and clean types"""
         if not leads_data:
             return pd.DataFrame()
             
         df = pd.DataFrame(leads_data)
+        
+        # Normalize columns: Supabase might be lowercase
+        # Map: lowercase -> Expected Capitalized
+        df = DataProcessor._normalize_columns(df, {
+            'Date': ['date'],
+            'status': ['Status'],
+            'is_human_reply': ['Is Human Reply'],
+            'bounce_type': ['Bounce Type'],
+            'sender_inbox_esp': ['Sender Inbox ESP'],
+            'lead_esp': ['Lead ESP'],
+            'campaign_id': ['Campaign ID', 'campaign_id'], # Ensure snake_case
+            'sequence_num': ['Sequence Num', 'sequence_num']
+        })
         
         # Ensure required columns exist
         required_cols = ['Date', 'status', 'bounce_type', 'is_human_reply', 'replies', 'sender_inbox_esp', 'lead_esp']
@@ -40,23 +79,101 @@ class DataProcessor:
                 df[col] = df[col].astype(str).str.strip()
         
         # Date conversion
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        if 'Date' in df.columns:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
         return df
 
     @staticmethod
-    def process_campaigns(campaigns_data: List[Dict]) -> pd.DataFrame:
-        """Convert campaign dictionaries to DataFrame and clean types"""
+    def process_campaigns(campaigns_data: List[Dict], leads_df: pd.DataFrame = None) -> pd.DataFrame:
+        """Convert campaign dictionaries to DataFrame and clean types, including aggregations from leads"""
         if not campaigns_data:
             return pd.DataFrame()
             
         df = pd.DataFrame(campaigns_data)
         
+        # Normalize columns
+        df = DataProcessor._normalize_columns(df, {
+            'Name': ['name'],
+            'workspace_name': ['Workspace Name'],
+            'campaign_id': ['Campaign ID'],
+            'created_at': ['Created At'],
+            'emails_sent': ['Emails Sent'],
+            'leads_contacted': ['Leads Contacted'],
+            'replied': ['Replied'],
+            'bounced': ['Bounced'],
+            'unique_replied': ['Unique Replied']
+        })
+        
+        # --- Aggregation from Leads (Backfill missing Supabase columns) ---
+        if leads_df is not None and not leads_df.empty and 'campaign_id' in leads_df.columns:
+            # Group by campaign_id
+            # 1. Human Replies: count where is_human_reply is true
+            # 2. Interested: status in ['Interested', 'Objection'] (Mapped to 'interested_sementic')
+            # 3. Not Interested: status == 'Not Interested'
+            # 4. Automated: status == 'Automated Reply'
+            
+            # Helper to sum boolean/condition
+            def count_cond(x, col, val):
+                return (x[col] == val).sum()
+                
+            def count_in(x, col, vals):
+                return x[col].isin(vals).sum()
+
+            # Create aggregation map
+            # We need to act on the leads_df and merge back to df (campaigns)
+            
+            # Ensure proper types for merging
+            leads_df['campaign_id'] = pd.to_numeric(leads_df['campaign_id'], errors='coerce').fillna(0).astype(int)
+            
+            agg_stats = leads_df.groupby('campaign_id').agg(
+                human_reply=('is_human_reply', 'sum'), # is_human_reply is 1/0 or True/False
+                interested_sementic=('status', lambda x: x.isin(['Interested']).sum()),
+                not_interested=('status', lambda x: (x == 'Not Interested').sum()),
+                automated_replies=('status', lambda x: (x == 'Automated Reply').sum()),
+                total_replies=('unique_replies',lambda x: (x > 0).sum()),
+                objection=('status', lambda x: x.isin(['Objection', 'Objections']).sum()),
+                
+            ).reset_index()
+
+            # Merge aggregated stats into campaigns df
+            # First ensure campaign_id in campaigns is int
+            if 'campaign_id' in df.columns:
+                 # Handle lists if needed (though Supabase usually gives direct values)
+                 df['campaign_id'] = df['campaign_id'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else x)
+                 df['campaign_id'] = pd.to_numeric(df['campaign_id'], errors='coerce').fillna(0).astype(int)
+            
+            df = df.merge(agg_stats, on='campaign_id', how='left', suffixes=('', '_calc'))
+            
+            # Fill missing calculated values with 0 (for campaigns with no leads)
+            calc_cols = ['human_reply', 'interested_sementic', 'not_interested', 'automated_replies', 'total_replies','objection']
+            for col in calc_cols:
+                # If column existed (from Supabase) but we want to override or fill
+                # The prompt says Supabase DOES NOT have these, so they will be NaN after merge or from original
+                
+                # If merge created suffixes (e.g. human_reply exists in orig data), use calculated one or prefer one?
+                # User said: "campaign table have same columns except..." implying these columns are MISSING in Supabase.
+                # So they likely won't exist in original df, or be null.
+                # The merge puts them in.
+                if col not in df.columns:
+                    df[col] = 0
+                else:
+                    df[col] = df[col].fillna(0)
+                    
+                # If there was a collision and we successfully merged, we might have col and col_calc?
+                # But if original didn't have it, we are good.
+                # If original had it (e.g. empty column), we should allow overwrite.
+                
+                # To be safe, if `col_calc` exists, copy to `col` and drop `col_calc`
+                if f'{col}_calc' in df.columns:
+                    df[col] = df[f'{col}_calc'].fillna(0)
+                    df.drop(columns=[f'{col}_calc'], inplace=True)
+
         # Ensure numeric columns are actually numeric
         numeric_cols = [
             'emails_sent', 'replied', 'bounced', 'leads_contacted', 'human_reply', 
             'interested_sementic', 'campaign_id', 'not_interested', 'automated_replies',
-            'unique_replied'
+            'unique_replied', 'total_replies', 'objection'
         ]
         for col in numeric_cols:
             if col in df.columns:
@@ -75,11 +192,14 @@ class DataProcessor:
         # Clean Name column (Single Select handling)
         if 'Name' in df.columns:
             df['Name'] = df['Name'].apply(lambda x: x[0] if isinstance(x, list) and len(x) > 0 else str(x) if x else 'Unknown')
+        else:
+             # If mapping failed and name is missing completely
+             df['Name'] = 'Unknown Campaign'
 
         # Recalculate Rates to ensure they are floats and correct
         # total_reply_rate
-        if 'unique_replied' in df.columns and 'leads_contacted' in df.columns:
-             df['total_reply_rate'] = (df['unique_replied'] / df['leads_contacted']).fillna(0)
+        if 'total_replies' in df.columns and 'leads_contacted' in df.columns:
+             df['total_reply_rate'] = (df['total_replies'] / df['leads_contacted']).fillna(0)
              
         # bounce_rate
         if 'bounced' in df.columns and 'leads_contacted' in df.columns:
@@ -106,9 +226,15 @@ class DataProcessor:
 
         # automated_reply_rate (vs human replies? or vs total? usually vs human for categorization or total for noise)
         # charts.py uses: automated_replies / human_reply
-        if 'automated_replies' in df.columns and 'human_reply' in df.columns:
+        if 'automated_replies' in df.columns and 'leads_contacted' in df.columns:
              df['automated_reply_rate'] = df.apply(
-                 lambda x: (x['automated_replies'] / x['human_reply']) if x['human_reply'] > 0 else 0, 
+                 lambda x: (x['automated_replies'] / x['leads_contacted']) if x['leads_contacted'] > 0 else 0, 
+                 axis=1
+             )
+
+        if 'objection' in df.columns and 'human_reply' in df.columns:
+             df['objection_rate'] = df.apply(
+                 lambda x: (x['objection'] / x['human_reply']) if x['human_reply'] > 0 else 0, 
                  axis=1
              )
              

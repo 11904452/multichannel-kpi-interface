@@ -106,22 +106,22 @@ def render_custom_metric(label, value_primary, value_secondary=None, bg_color="#
     </div>
     """, unsafe_allow_html=True)
 
-def render_kpi_cards(current_metrics: Dict[str, float], previous_metrics: Dict[str, float]):
+def render_kpi_cards(current_metrics: Dict[str, float]):
     """
     Render rows of KPI cards with trends.
     """
     # Create 4 columns for the KPIs
     col1, col2, col3, col4 = st.columns(4)
     
-    with col1:
-        render_custom_metric(
-            label="Total Emails Sent",
-            value_primary=f"{int(current_metrics['total_sent']):,}",
-            bg_color="#E8F0FE",
-            icon="📧"
-        )
+    # with col1:
+    #     render_custom_metric(
+    #         label="Total Emails Sent",
+    #         value_primary=f"{int(current_metrics['total_sent']):,}",
+    #         bg_color="#E8F0FE",
+    #         icon="📧"
+    #     )
         
-    with col2:
+    with col1:
         render_custom_metric(
             label="People Contacted",
             value_primary=f"{int(current_metrics['total_contacted']):,}",
@@ -129,7 +129,7 @@ def render_kpi_cards(current_metrics: Dict[str, float], previous_metrics: Dict[s
             icon="👥"
         )
         
-    with col3:
+    with col2:
         render_custom_metric(
             label="Overall Reply Rate",
             value_primary=f"{current_metrics['overall_reply_rate']:.2f}%",
@@ -138,13 +138,22 @@ def render_kpi_cards(current_metrics: Dict[str, float], previous_metrics: Dict[s
             icon="💬"
         )
     
-    with col4:
+    with col3:
         render_custom_metric(
             label="Bounce Rate",
             value_primary=f"{current_metrics['bounce_rate']:.2f}%",
             value_secondary=int(current_metrics['bounces']),
             bg_color="#FCE8E6",
-            icon="⚠️"
+            icon="📭"
+        )
+
+    with col4:
+        render_custom_metric(
+            label="Automated Reply Rate",
+            value_primary=f"{current_metrics['automated_rate']:.2f}%",
+            value_secondary=int(current_metrics.get('automated_replies', 0)),
+            bg_color="#FEF7E0",
+            icon="🤖"
         )
 
     # Second row of KPIs
@@ -156,16 +165,16 @@ def render_kpi_cards(current_metrics: Dict[str, float], previous_metrics: Dict[s
             value_primary=f"{current_metrics['human_reply_rate']:.2f}%",
             value_secondary=int(current_metrics.get('human_replies', 0)),
             bg_color="#E6F4EA",
-            icon="✅"
+            icon="👤"
         )
         
     with col6:
         render_custom_metric(
-            label="Automated Reply Rate",
-            value_primary=f"{current_metrics['automated_rate']:.2f}%",
-            value_secondary=int(current_metrics.get('automated_replies', 0)),
+            label="Objection Reply Rate",
+            value_primary=f"{current_metrics['objection_rate']:.2f}%",
+            value_secondary=int(current_metrics.get('objection', 0)),
             bg_color="#FEF7E0",
-            icon="🤖"
+            icon="⚠️"
         )
         
     with col7:
@@ -174,7 +183,7 @@ def render_kpi_cards(current_metrics: Dict[str, float], previous_metrics: Dict[s
             value_primary=f"{current_metrics['not_interested_rate']:.2f}%",
             value_secondary=int(current_metrics.get('not_interested_replies', 0)),
             bg_color="#FCE8E6",
-            icon="❌"
+            icon="🚫"
         )
 
     with col8:

@@ -1,5 +1,5 @@
 import streamlit as st
-from data.airtable_client import AirtableClient
+from data.supabase_client import SupabaseClient
 from data.data_processor import DataProcessor
 from components.filters import render_workspace_filters, render_campaign_filters
 from components.kpi_cards import render_kpi_cards
@@ -331,21 +331,21 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 def load_data():
-    """Load and process data from Airtable"""
+    """Load and process data from Supabase"""
     try:
-        client = AirtableClient()
+        client = SupabaseClient()
     except Exception as e:
-        st.error(f"Failed to connect to Airtable: {e}")
+        st.error(f"Failed to connect to Supabase: {e}")
         st.stop()
         
     with st.spinner("Loading dashboard data..."):
-        # Fetch campaigns
-        campaigns_raw = client.get_campaigns()
-        campaigns_df = DataProcessor.process_campaigns(campaigns_raw)
-        
-        # Fetch leads
+        # Fetch leads FIRST to allow aggregation
         leads_raw = client.get_leads()
         leads_df = DataProcessor.process_leads(leads_raw)
+        
+        # Fetch campaigns and process with leads aggregation
+        campaigns_raw = client.get_campaigns()
+        campaigns_df = DataProcessor.process_campaigns(campaigns_raw, leads_df)
 
         # Fetch sequences
         sequences_raw = client.get_email_sequences()
@@ -386,7 +386,7 @@ def render_workspace_overview(campaigns_df: pd.DataFrame, leads_df: pd.DataFrame
     previous_metrics = calculate_kpis(filtered_campaigns_df)
     
     # Render KPI Cards
-    render_kpi_cards(current_metrics, previous_metrics)
+    render_kpi_cards(current_metrics)
     
     # Render Charts
     render_charts(filtered_leads_df, filtered_campaigns_df, key_prefix="workspace")
@@ -443,7 +443,7 @@ def render_campaign_analysis(campaigns_df: pd.DataFrame, leads_df: pd.DataFrame,
     
     # Render KPI Cards
     st.subheader(f"Campaign: {selected_campaign}")
-    render_kpi_cards(current_metrics, previous_metrics)
+    render_kpi_cards(current_metrics)
     
     # Render Charts (only for this campaign)
     campaign_df_single = pd.DataFrame([campaign_row])
@@ -619,7 +619,7 @@ def run_email_dashboard():
         current_metrics = calculate_kpis(filtered_campaigns_df)
         previous_metrics = calculate_kpis(filtered_campaigns_df) # Simplified prev
         
-        render_kpi_cards(current_metrics, previous_metrics)
+        render_kpi_cards(current_metrics)
         render_charts(filtered_leads_df, filtered_campaigns_df, key_prefix="workspace")
 
     elif active_tab == TABS[1]:
@@ -654,7 +654,7 @@ def run_email_dashboard():
                 previous_metrics = calculate_campaign_kpis(campaign_row)
                 
                 st.subheader(f"Campaign: {selected_campaign}")
-                render_kpi_cards(current_metrics, previous_metrics)
+                render_kpi_cards(current_metrics)
                 
                 campaign_df_single = pd.DataFrame([campaign_row])
                 render_charts(filtered_leads_df, campaign_df_single, key_prefix="campaign")

@@ -42,54 +42,99 @@ def render_lead_status_analysis(leads_df):
                  delta=f"{(not_interested/total_leads*100):.1f}%" if total_leads > 0 else "0%",
                  delta_color="inverse")
 
-def render_top_recipients(leads_df):
-    """Render top performing recipients analysis"""
-    if leads_df.empty or 'recipient_name' not in leads_df.columns:
-        st.info("No recipient data available")
+def render_top_accounts(leads_df):
+    """Render top performing accounts analysis"""
+    if leads_df.empty or 'account_name' not in leads_df.columns:
+        st.info("No account data available")
         return
     
-    st.subheader("🏆 Top Performing Recipients")
+    st.subheader("🏆 Top Performing Accounts")
     
-    # Aggregate by recipient
-    recipient_stats = leads_df.groupby('recipient_name').agg({
+    # Aggregate by account
+    account_stats = leads_df.groupby('account_name').agg({
         'lead_id': 'count',
         'replies': 'sum',
         'Status': lambda x: (x == 'Interested').sum()
     }).reset_index()
     
-    recipient_stats.columns = ['Recipient', 'Total Leads', 'Total Replies', 'Interested Leads']
-    recipient_stats['Interest Rate %'] = (recipient_stats['Interested Leads'] / recipient_stats['Total Leads'] * 100).round(2)
-    recipient_stats = recipient_stats.sort_values('Interested Leads', ascending=False).head(10)
+    account_stats.columns = ['Account', 'Total Leads', 'Total Replies', 'Interested Leads']
+    account_stats['Interest Rate %'] = (account_stats['Interested Leads'] / account_stats['Total Leads'] * 100).round(2)
     
-    col1, col2 = st.columns([2, 1])
+    # Deterministic sort: Primary by Interested Leads (desc), Secondary by Account Name (asc) for ties
+    account_stats = account_stats.sort_values(by=['Interested Leads', 'Account'], ascending=[False, True])
+    
+    # Filter controls (outside columns to align start of chart and card)
+    f_col1, _ = st.columns([1, 4])
+    with f_col1:
+        top_n = st.selectbox(
+            "Show Top:",
+            options=["All", 10],
+            index=0, # Default to All
+            key="top_accounts_filter"
+        )
+    
+    # Apply filter
+    display_stats = account_stats.copy()
+    if top_n != "All":
+            display_stats = display_stats.head(int(top_n))
+    
+    # Reverse for horizontal bar chart (so highest is at top)
+    display_stats = display_stats.iloc[::-1]
+
+    # Dynamic height based on number of rows
+    # Base height 400, add 30px per row.
+    # We want it to be substantial.
+    row_height = 25
+    margin_height = 80
+    dynamic_height = max(450, len(display_stats) * row_height + margin_height)
+
+    col1, col2 = st.columns([3, 1]) # Adjusted ratio for better chart width
     
     with col1:
         # Horizontal bar chart
         fig = px.bar(
-            recipient_stats,
-            y='Recipient',
+            display_stats,
+            y='Account',
             x='Interested Leads',
             orientation='h',
-            title="Top 10 Recipients by Interested Leads",
+            title=f"Accounts by Interested Leads ({top_n if top_n != 'All' else 'All'})",
             color='Interest Rate %',
             color_continuous_scale='Viridis',
             text='Interested Leads'
         )
         fig.update_traces(texttemplate='%{text}', textposition='outside')
-        fig.update_layout(height=400, yaxis={'categoryorder': 'total ascending'})
+        fig.update_layout(height=dynamic_height, margin=dict(t=50, b=50), yaxis={'categoryorder': 'total ascending'})
+        
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         # Top performer card
-        if not recipient_stats.empty:
-            top = recipient_stats.iloc[0]
+        if not account_stats.empty:
+            # Use the first record from the deterministically sorted dataframe
+            top = account_stats.iloc[0]
+            scale = min(1.2, max(0.6, dynamic_height / 450.0))
             st.markdown(f"""
             <div style='background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                        padding: 20px; border-radius: 10px; color: white; text-align: center;'>
-                <h3 style='margin:0; color: white;'>🥇 Top Performer</h3>
-                <h2 style='margin:10px 0; color: white;'>{top['Recipient']}</h2>
-                <p style='font-size: 24px; margin: 5px 0;'>{int(top['Interested Leads'])} Interested</p>
-                <p style='font-size: 18px; margin: 5px 0;'>{top['Interest Rate %']:.1f}% Rate</p>
+                        height: {dynamic_height}px;
+                        padding: 20px; 
+                        border-radius: 10px; 
+                        color: white; 
+                        text-align: center; 
+                        box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
+                        display: flex; 
+                        flex-direction: column; 
+                        justify-content: center;
+                        align-items: center;'>
+                <div style='font-size: {3 * scale}em; margin-bottom: {10 * scale}px; filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.6)); line-height: 1;'>🥇</div>
+                <h3 style='margin:0; color: white; font-size: {2 * scale}em; opacity: 0.9; line-height: 1.1;'>Top Performer</h3>
+                <h2 style='margin:-{5 * scale}px 0 {15 * scale}px 0; color: white; font-size: {1.8 * scale}em; line-height: 1.1; word-wrap: break-word; max-width: 100%;'>{top['Account']}</h2>
+                <div style='background: rgba(255,255,255,0.2); border-radius: 15px; padding: {15 * scale}px {25 * scale}px; backdrop-filter: blur(5px); width: 100%; box-sizing: border-box;'>
+                    <p style='font-size: {2 * scale}em; margin: 0; font-weight: bold; line-height: 1.1;'>{int(top['Interested Leads'])}</p>
+                    <p style='font-size: {1 * scale}em; margin: 0; opacity: 0.9;'>Interested Leads</p>
+                    <div style='width: 100%; height: 2px; background: rgba(255,255,255,0.3); margin: {8 * scale}px 0;'></div>
+                    <p style='font-size: {1.2 * scale}em; margin: 0; font-weight: 200; line-height: 0.7;'>{top['Interest Rate %']:.1f}%</p>
+                    <p style='font-size: {1 * scale}em; margin: 0; opacity: 0.8;'>Conversion Rate</p>
+                </div>
             </div>
             """, unsafe_allow_html=True)
 
@@ -155,101 +200,271 @@ def render_campaign_effectiveness(campaigns_df, leads_df):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-def render_job_title_analysis(leads_df):
-    """Render job title analysis"""
+def map_job_title_to_seniority(title):
+    """Map job title to seniority level"""
+    if not isinstance(title, str):
+        return "Entry Level"
+    
+    title_lower = title.lower()
+    
+    # Define keywords for each level (Order matters: higher seniority first)
+    has_owner = any(x in title_lower for x in ['owner', 'founder', 'co-founder', 'partner', 'principal'])
+    has_cxo = any(x in title_lower for x in ['chief', 'c-suite', 'ceo', 'cto', 'cfo', 'coo', 'cmo', 'president', 'executive'])
+    has_vp = any(x in title_lower for x in ['vp', 'vice president'])
+    has_director = any(x in title_lower for x in ['director', 'head'])
+    has_manager = any(x in title_lower for x in ['manager', 'lead', 'supervisor'])
+    
+    if has_owner: return "Owner"
+    if has_cxo: return "CXO"
+    if has_vp: return "VP"
+    if has_director: return "Director"
+    if has_manager: return "Manager"
+    
+    return "Entry Level"
+
+def render_seniority_level_analysis(leads_df):
+    """Render seniority level analysis based on job titles"""
     if leads_df.empty or 'job_title' not in leads_df.columns:
         return
     
-    st.subheader("💼 Job Title Insights")
+    st.subheader("💼 Seniority Level Insights")
     
-    # Top job titles
-    job_stats = leads_df.groupby('job_title').agg({
+    # Create a copy to avoid SettingWithCopyWarning
+    df_analysis = leads_df.copy()
+    
+    # Map job titles to seniority
+    df_analysis['Seniority'] = df_analysis['job_title'].apply(map_job_title_to_seniority)
+    
+    # Aggregate stats by Seniority
+    seniority_stats = df_analysis.groupby('Seniority').agg({
         'lead_id': 'count',
         'Status': lambda x: (x == 'Interested').sum()
     }).reset_index()
-    job_stats.columns = ['Job Title', 'Total Leads', 'Interested']
-    job_stats['Interest Rate %'] = (job_stats['Interested'] / job_stats['Total Leads'] * 100).round(2)
-    job_stats = job_stats.sort_values('Interested', ascending=False).head(15)
+    
+    seniority_stats.columns = ['Seniority Level', 'Total Leads', 'Interested']
+    seniority_stats['Interest Rate %'] = (seniority_stats['Interested'] / seniority_stats['Total Leads'] * 100).round(2)
+    
+    # Sort by Interest Rate for the chart
+    seniority_stats = seniority_stats.sort_values('Interest Rate %', ascending=True)
     
     col1, col2 = st.columns([2, 1])
     
     with col1:
         fig = px.bar(
-            job_stats,
+            seniority_stats,
             x='Interest Rate %',
-            y='Job Title',
+            y='Seniority Level',
             orientation='h',
-            title="Top Job Titles by Interest Rate",
+            title="Interest Rate by Seniority Level",
             color='Total Leads',
             color_continuous_scale='Blues',
             text='Interest Rate %'
         )
         fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'})
+        fig.update_layout(height=400)
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
         # Summary stats
         st.markdown("### Key Insights")
-        total_titles = leads_df['job_title'].nunique()
-        st.metric("Unique Job Titles", f"{total_titles:,}")
         
-        if not job_stats.empty:
-            best_title = job_stats.iloc[0]
+        # Sort by Interest Rate descending for insights
+        top_stats = seniority_stats.sort_values('Interest Rate %', ascending=False)
+        
+        if not top_stats.empty:
+            best_level = top_stats.iloc[0]
             st.markdown(f"""
-            **Most Responsive:**  
-            {best_title['Job Title']}  
-            *{best_title['Interest Rate %']:.1f}% interest rate*
+            **Most Responsive Level:**  
+            {best_level['Seniority Level']}  
+            *{best_level['Interest Rate %']:.1f}% interest rate*
             """)
+            
+        # Distribution
+        st.markdown("**Distribution:**")
+        dist = df_analysis['Seniority'].value_counts(normalize=True) * 100
+        for level, pct in dist.head(3).items():
+            st.markdown(f"- {level}: {pct:.1f}%")
 
-def render_engagement_timeline(leads_df):
-    """Render engagement timeline analysis"""
+def render_analytics_section(leads_df):
+    """Render advanced analytics section with dynamic chart"""
     if leads_df.empty or 'reply_date' not in leads_df.columns:
         return
     
-    st.subheader("📅 Engagement Timeline")
+    # Section Header
+    st.markdown("""
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h2 style="margin: 0;">📈 Analytics</h2>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Filter out null dates
+    # Filter out null dates and ensure datetime
     timeline_df = leads_df[leads_df['reply_date'].notna()].copy()
-    
     if timeline_df.empty:
         st.info("No timeline data available")
         return
-    
+        
     timeline_df['date'] = pd.to_datetime(timeline_df['reply_date']).dt.date
     
-    # Daily engagement
-    daily_stats = timeline_df.groupby('date').agg({
-        'lead_id': 'count',
-        'Status': lambda x: (x == 'Interested').sum()
+    # --- Data Processing for All Metrics ---
+    # Group by date and calculate counts for each metric
+    daily_data = timeline_df.groupby('date').agg({
+        'lead_id': 'count', # Total Replies
+        'Status': [
+            lambda x: (x == 'Interested').sum(),
+            lambda x: (x == 'Not Interested').sum(),
+            lambda x: x.isin(['Objection', 'Objections']).sum(),
+            lambda x: x.astype(str).str.contains('Revisit', case=False, na=False).sum()
+        ]
     }).reset_index()
-    daily_stats.columns = ['Date', 'Total Replies', 'Interested']
     
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=daily_stats['Date'],
-        y=daily_stats['Total Replies'],
-        mode='lines+markers',
-        name='Total Replies',
-        line=dict(color='#667eea', width=3),
-        fill='tozeroy'
-    ))
-    fig.add_trace(go.Scatter(
-        x=daily_stats['Date'],
-        y=daily_stats['Interested'],
-        mode='lines+markers',
-        name='Interested Leads',
-        line=dict(color='#764ba2', width=3)
-    ))
+    # Flatten MultiIndex columns
+    daily_data.columns = ['Date', 'Replies', 'Interested', 'Not Interested', 'Objection', 'Revisit Later']
     
-    fig.update_layout(
-        title="Daily Engagement Trends",
-        xaxis_title="Date",
-        yaxis_title="Count",
-        height=400,
-        hovermode='x unified'
+    # Ensure all dates in range are present (fill gaps with 0)
+    min_date = daily_data['Date'].min()
+    max_date = daily_data['Date'].max()
+    all_dates = pd.date_range(start=min_date, end=max_date, freq='D').date
+    
+    daily_data = daily_data.set_index('Date').reindex(all_dates, fill_value=0).reset_index()
+    daily_data.rename(columns={'index': 'Date'}, inplace=True)
+
+    # --- Metric Selection UI ---
+    # mapping friendly names to column names and colors
+    metrics_config = {
+        "Replies": {"col": "Replies", "color": "#6366f1", "icon": "↩️"},
+        "Interested": {"col": "Interested", "color": "#10b981", "icon": "✅"},
+        "Not Interested": {"col": "Not Interested", "color": "#ef4444", "icon": "🚫"},
+        "Objection": {"col": "Objection", "color": "#f59e0b", "icon": "⚠️"},
+        "Revisit Later": {"col": "Revisit Later", "color": "#8b5cf6", "icon": "⏳"}
+    }
+    
+    # Custom CSS for the metric selector to look like tabs
+    st.markdown("""
+    <style>
+    div[data-testid="stRadio"] > div {
+        flex-direction: row;
+        gap: 8px;
+        overflow-x: auto;
+        padding-bottom: 5px;
+    }
+    div[data-testid="stRadio"] label {
+        background-color: #f1f5f9;
+        padding: 8px 16px;
+        border-radius: 20px;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s;
+        font-weight: 500;
+        font-size: 0.9rem;
+    }
+    div[data-testid="stRadio"] label:hover {
+        background-color: #e2e8f0;
+        border-color: #cbd5e1;
+    }
+    div[data-testid="stRadio"] label:has(input:checked) {
+        background-color: #f8fafc; /* light background */
+        border-color: #6366f1; /* primary border */
+        color: #6366f1;
+        font-weight: 600;
+        box-shadow: 0 0 0 1px #6366f1;
+    }
+    div[data-testid="stRadio"] label:has(input:checked) div {
+        color: #6366f1 !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    selected_metric_name = st.radio(
+        "Select Metric",
+        options=list(metrics_config.keys()),
+        index=0,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="analytics_metric_selector"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    
+    # Get config for selected metric
+    config = metrics_config[selected_metric_name]
+    col_name = config['col']
+    chart_color = config['color']
+    
+    # Calculate Summary Stats for the selected metric
+    total_count = daily_data[col_name].sum()
+    
+    # --- Render Chart Section ---
+    # Container styling
+    st.markdown(f"""
+    <div style="background: white; border-radius: 16px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); border: 1px solid rgba(0,0,0,0.05);">
+        <div style="margin-bottom: 20px;">
+             <span style="font-size: 0.9rem; color: #64748b; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">{config['icon']} {selected_metric_name}</span>
+             <div style="font-size: 2.5rem; font-weight: 700; color: #1e293b; line-height: 1.2;">+{total_count}</div>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    # Plotly Chart
+    fig = go.Figure()
+    
+    # Add Gradient Area Trace
+    fig.add_trace(go.Scatter(
+        x=daily_data['Date'],
+        y=daily_data[col_name],
+        mode='lines',
+        name=selected_metric_name,
+        line=dict(color=chart_color, width=3, shape='spline', smoothing=1.3),
+        fill='tozeroy',
+        # Create a gradient effect using rgba
+        fillcolor=f"rgba({int(chart_color[1:3], 16)}, {int(chart_color[3:5], 16)}, {int(chart_color[5:7], 16)}, 0.1)" 
+    ))
+    
+    # Add Markers for non-zero points only to keep it clean, or just hover points
+    # Let's add specific markers for the checked point style
+    fig.add_trace(go.Scatter(
+        x=daily_data['Date'],
+        y=daily_data[col_name],
+        mode='markers',
+        marker=dict(
+            size=8,
+            color='white',
+            line=dict(color=chart_color, width=2)
+        ),
+        showlegend=False,
+        hoverinfo='skip' # The line trace handles hover better
+    ))
+
+    # Layout Updates for "High Tech" / Clean Look
+    fig.update_layout(
+        template='plotly_white',
+        height=350,
+        margin=dict(l=0, r=0, t=20, b=20),
+        xaxis=dict(
+            showgrid=False,
+            showline=False,
+            zeroline=False,
+            tickformat="%b %d",
+            tickfont=dict(color='#94a3b8', size=12),
+            fixedrange=True
+        ),
+        yaxis=dict(
+            showgrid=True,
+            gridcolor='#f1f5f9',
+            gridwidth=1,
+            zeroline=False,
+            showticklabels=True,
+            tickfont=dict(color='#94a3b8', size=12),
+            fixedrange=True
+        ),
+        hovermode='x unified',
+        hoverlabel=dict(
+            bgcolor='white',
+            font_size=14,
+            font_family="Inter, sans-serif",
+            bordercolor=chart_color
+        ),
+        showlegend=False
+    )
+    
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+    
+    st.markdown("</div>", unsafe_allow_html=True)
 
 def render_conversion_funnel(campaigns_df, leads_df):
     """Render enhanced conversion funnel"""
@@ -270,65 +485,125 @@ def render_conversion_funnel(campaigns_df, leads_df):
         interested = len(leads_df[leads_df['Status'] == 'Interested'])
     
     funnel_data = pd.DataFrame({
-        'Stage': ['Connections Sent', 'Connections Accepted', 'Messages Sent', 'Replies Received', 'Interested Leads'],
-        'Count': [total_sent, total_accepted, total_messages, total_replies, interested]
+        'Stage': ['Connections Sent', 'Connections Accepted', 'Replies Received', 'Interested Leads'],
+        'Count': [total_sent, total_accepted, total_replies, interested]
     })
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        fig = px.funnel(
-            funnel_data,
-            x='Count',
-            y='Stage',
-            title="Complete Conversion Funnel"
-        )
-        fig.update_layout(height=400)
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Conversion rates
-        st.markdown("### Conversion Rates")
-        if total_sent > 0:
-            st.metric("Connection → Acceptance", f"{(total_accepted/total_sent*100):.1f}%")
-        if total_accepted > 0:
-            st.metric("Accepted → Message", f"{(total_messages/total_accepted*100):.1f}%")
-        if total_messages > 0:
-            st.metric("Message → Reply", f"{(total_replies/total_messages*100):.1f}%")
-        if total_replies > 0:
-            st.metric("Reply → Interested", f"{(interested/total_replies*100):.1f}%")
+    fig = px.funnel(
+        funnel_data,
+        x='Count',
+        y='Stage',
+        title="Complete Conversion Funnel"
+    )
+    fig.update_layout(height=400)
+    st.plotly_chart(fig, use_container_width=True)
 
 def render_detailed_tables(campaigns_df, leads_df):
     """Render detailed data tables with enhanced styling"""
     st.subheader("📋 Detailed Data Tables")
     
+    # Custom CSS for styling the Delete button and Status
+    # We target buttons inside columns that are NOT disabled. 
+    # This should affect the delete buttons in the table but not the download button (which is outside columns).
+    st.markdown("""
+        <style>
+        /* Style for enabled delete buttons (soft red theme) */
+        div[data-testid="column"] button:not([disabled]) {
+            background-color: #ffebee !important;
+            color: #ef5350 !important;
+            border-color: #ffcdd2 !important;
+        }
+        div[data-testid="column"] button:not([disabled]):hover {
+            background-color: #ffcdd2 !important;
+            color: #d32f2f !important;
+            border-color: #ef5350 !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     tab1, tab2 = st.tabs(["Campaign Details", "Lead Details"])
     
     with tab1:
         if not campaigns_df.empty:
-            display_cols = [
-                'campaign_name', 'workspace_name', 'Status', 'outreach_type',
-                'sent_connections', 'accepted_connections', 'sent_messages', 
-                'replies', 'sent_inmails', 'inmail_replies'
-            ]
-            cols = [c for c in display_cols if c in campaigns_df.columns]
-            
-            st.dataframe(
-                campaigns_df[cols],
-                use_container_width=True,
-                column_config={
-                    "campaign_name": st.column_config.TextColumn("Campaign", width="medium"),
-                    "Status": st.column_config.TextColumn("Status", width="small"),
-                    "sent_connections": st.column_config.NumberColumn("Sent", format="%d"),
-                    "accepted_connections": st.column_config.NumberColumn("Accepted", format="%d"),
-                    "replies": st.column_config.NumberColumn("Replies", format="%d")
-                }
+            # Download Button
+            csv = campaigns_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv,
+                file_name="linkedin_campaigns.csv",
+                mime="text/csv",
+                key="download_campaigns"
             )
-    
+            
+            # Table Header
+            # Layout: Campaign (3), Workspace (2), Status (1), Type (1), Sent (1), Accepted (1), Replies (1), Action (1)
+            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([3, 1.5, 1, 1, 1, 1, 1, 1])
+            c1.markdown("**Campaign**")
+            c2.markdown("**Workspace**")
+            c3.markdown("**Status**")
+            c4.markdown("**Type**")
+            c5.markdown("**Sent**")
+            c6.markdown("**Acc.**")
+            c7.markdown("**Repl.**")
+            c8.markdown("**Action**")
+            
+            st.divider()
+            
+            # Table Rows
+            from data.supabase_client import SupabaseClient
+            
+            for index, row in campaigns_df.iterrows():
+                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([3, 1.5, 1, 1, 1, 1, 1, 1])
+                
+                with c1:
+                    st.write(row.get('campaign_name', ''))
+                with c2:
+                    st.write(row.get('workspace_name', ''))
+                with c3:
+                    status = row.get('Status', '')
+                    # Check if status is 'deleted' (case-insensitive)
+                    is_deleted = str(status).lower() == 'deleted' if status else False
+                    
+                    if is_deleted:
+                        # Soft red color for text
+                         st.markdown(f"<span style='color: #ef5350; font-weight: 600;'>{status}</span>", unsafe_allow_html=True)
+                    else:
+                        st.write(status)
+
+                with c4:
+                    st.write(row.get('outreach_type', ''))
+                with c5:
+                    st.write(f"{int(row.get('sent_connections', 0))}")
+                with c6:
+                    st.write(f"{int(row.get('accepted_connections', 0))}")
+                with c7:
+                    st.write(f"{int(row.get('replies', 0))}")
+                with c8:
+                    if st.button("🗑️", key=f"del_{row.get('campaign_id', index)}", disabled=not is_deleted, help="Delete Campaign"):
+                        client = SupabaseClient()
+                        if client.delete_linkedin_campaign(str(row.get('campaign_id'))):
+                            st.success("Deleted!")
+                            st.rerun()
+                        else:
+                            st.error("Failed")
+                
+                st.divider()
+
     with tab2:
         if not leads_df.empty:
+            
+            # Download Button for Leads
+            csv_leads = leads_df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download CSV",
+                data=csv_leads,
+                file_name="linkedin_leads.csv",
+                mime="text/csv",
+                key="download_leads"
+            )
+
             display_cols = [
-                'name', 'job_title', 'Status', 'recipient_name', 
+                'name', 'job_title', 'Status', 'account_name', 
                 'replies', 'reply_date', 'type', 'inmail', 'automated'
             ]
             cols = [c for c in display_cols if c in leads_df.columns]
@@ -340,6 +615,7 @@ def render_detailed_tables(campaigns_df, leads_df):
                     "name": st.column_config.TextColumn("Lead Name", width="medium"),
                     "job_title": st.column_config.TextColumn("Job Title", width="medium"),
                     "Status": st.column_config.TextColumn("Status", width="small"),
-                    "reply_date": st.column_config.DatetimeColumn("Reply Date", format="D MMM YYYY")
+                    "reply_date": st.column_config.DatetimeColumn("Reply Date", format="D MMM YYYY"),
+                    "account_name": st.column_config.TextColumn("Account Name", width="medium")
                 }
             )

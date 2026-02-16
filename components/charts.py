@@ -3,7 +3,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pandas as pd
 import datetime
-
+import numpy as np
 # Define calm pastel palette
 PASTEL_PALETTE = [
     '#88B3C8', # Blue
@@ -64,17 +64,15 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
     with col1:
         if not leads_df.empty:
             # Calculate total leads
-            if 'leads_contacted_roll' in leads_df.columns and 'campaign_id' in leads_df.columns:
-                # Ensure it's numeric before summing
-                leads_df['leads_contacted_roll'] = pd.to_numeric(leads_df['leads_contacted_roll'], errors='coerce').fillna(0)
-                # Drop duplicates by campaign_id to get one row per campaign, then sum the contacted count
-                total_leads = leads_df[['campaign_id', 'leads_contacted_roll']].drop_duplicates()['leads_contacted_roll'].sum()
+            if not campaigns_df.empty and 'leads_contacted' in campaigns_df.columns:
+                total_leads = pd.to_numeric(campaigns_df['leads_contacted'], errors='coerce').fillna(0).sum()
             else:
-                # Fallback if columns missing (though user indicated they added roll col)
+                # Fallback if columns missing
                 total_leads = len(leads_df)
             
             # Calculate reply counts
-            human_replies = leads_df[leads_df['is_human_reply'] == 1].shape[0]
+            # human_replies = leads_df[leads_df['is_human_reply'] == 1].shape[0]
+            human_replies = leads_df['is_human_reply'].fillna(0).sum()
             total_replies = leads_df[leads_df['unique_replies'] > 0].shape[0]
             
             # Calculate reply rates as percentages
@@ -278,15 +276,19 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
         # Prepare data for pivot tables
         df_pivot = leads_df.copy()
         
-        # Calculate total leads contacted based on unique campaigns
-        if 'leads_contacted_roll' in df_pivot.columns and 'campaign_id' in df_pivot.columns:
-            # Ensure it's numeric before summing
-            df_pivot['leads_contacted_roll'] = pd.to_numeric(df_pivot['leads_contacted_roll'], errors='coerce').fillna(0)
-            # Drop duplicates by campaign_id to get one row per campaign, then sum the contacted count
-            total_leads_contacted = df_pivot[['campaign_id', 'leads_contacted_roll']].drop_duplicates()['leads_contacted_roll'].sum()
+        # Calculate leads contacted based on unique sender_inbox_esp count
+        if df_pivot['sender_inbox_esp'].nunique() == 1:
+            # Case 1: Single ESP - take from campaigns_df
+            if not campaigns_df.empty and 'leads_contacted' in campaigns_df.columns:
+                 total_leads_contacted = pd.to_numeric(campaigns_df['leads_contacted'], errors='coerce').fillna(0).sum()
+            else:
+                 total_leads_contacted = len(df_pivot)
         else:
-             # Fallback if columns missing (though user indicated they added roll col)
-             total_leads_contacted = len(df_pivot)
+            # Case 2: Broad Analysis - take from leads_df specific to sender_inbox_esp
+            # We return a Series indexed by sender_inbox_esp
+            total_leads_contacted = df_pivot.groupby('sender_inbox_esp')['lead_id'].count()
+            # Add Total for margins
+            total_leads_contacted['Total'] = total_leads_contacted.sum()
              
         # Ensure numeric for aggregation
         df_pivot['is_reply_bool'] = pd.to_numeric(df_pivot['unique_replies'], errors='coerce').fillna(0) > 0
@@ -294,7 +296,14 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
         
         st.markdown("**Total Reply Rate by Lead ESP & Inbox ESP**")
         
-        if total_leads_contacted > 0:
+        # Check if we have data (handle both scalar and Series)
+        has_data = False
+        if isinstance(total_leads_contacted, (int, float, np.number)):
+             has_data = total_leads_contacted > 0
+        else:
+             has_data = total_leads_contacted.sum() > 0 if not total_leads_contacted.empty else False
+
+        if has_data:
             # Create pivot table with margins (sums of replies)
             pivot_total = pd.pivot_table(
                 df_pivot, 
@@ -309,7 +318,11 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
             # Calculate percentage based on TOTAL leads contacted
             # Replace NaNs with 0 before calculation
             pivot_total = pivot_total.fillna(0)
-            pivot_total = (pivot_total / total_leads_contacted) * 100
+            
+            if isinstance(total_leads_contacted, (int, float, np.number)):
+                 pivot_total = (pivot_total / total_leads_contacted) * 100
+            else:
+                 pivot_total = pivot_total.div(total_leads_contacted, axis=0) * 100
         else:
             pivot_total = pd.DataFrame()
 
@@ -334,7 +347,7 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
                 
         st.markdown("**Human Reply Rate by Lead ESP & Inbox ESP**")
         
-        if total_leads_contacted > 0:
+        if has_data:
             # Create pivot table with margins (sums of human replies)
             pivot_human = pd.pivot_table(
                 df_pivot, 
@@ -348,7 +361,11 @@ def render_charts(leads_df: pd.DataFrame, campaigns_df: pd.DataFrame, key_prefix
             
             # Convert to percentage of TOTAL leads
             pivot_human = pivot_human.fillna(0)
-            pivot_human = (pivot_human / total_leads_contacted) * 100
+            
+            if isinstance(total_leads_contacted, (int, float, np.number)):
+                 pivot_human = (pivot_human / total_leads_contacted) * 100
+            else:
+                 pivot_human = pivot_human.div(total_leads_contacted, axis=0) * 100
         else:
             pivot_human = pd.DataFrame()
             

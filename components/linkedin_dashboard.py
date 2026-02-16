@@ -5,10 +5,9 @@ from data.linkedin_data import LinkedinDataLoader
 from components.linkedin_kpis import calculate_linkedin_metrics, render_linkedin_kpi_cards
 from components.linkedin_charts import (
     render_lead_status_analysis,
-    render_top_recipients,
-    render_campaign_effectiveness,
-    render_job_title_analysis,
-    render_engagement_timeline,
+    render_top_accounts,
+    render_seniority_level_analysis,
+    render_analytics_section,
     render_conversion_funnel,
     render_detailed_tables
 )
@@ -104,6 +103,35 @@ def render_linkedin_dashboard():
         if selected_date_filter != "All Time":
             st.markdown(f"**Date:** `{start_date.strftime('%Y-%m-%d')}` to `{end_date.strftime('%Y-%m-%d')}`")
 
+        # --- Campaign Actions ---
+        if selected_campaign != "All Campaigns":
+            st.divider()
+            st.markdown("### ⚠️ Danger Zone")
+            
+            # Use columns for better layout
+            col_del1, col_del2 = st.columns([0.1, 0.9])
+            
+            enable_delete = st.checkbox("Enable Deletion", key="enable_del_cam")
+            
+            if enable_delete:
+                if st.button("🗑️ Delete Campaign", type="primary", use_container_width=True):
+                    # Get campaign ID
+                    params = filtered_campaigns_choices[filtered_campaigns_choices['campaign_name'] == selected_campaign]
+                    if not params.empty:
+                        campaign_id = params.iloc[0]['campaign_id']
+                        
+                        with st.spinner("Deleting campaign data..."):
+                            if LinkedinDataLoader.delete_campaign(campaign_id):
+                                st.success(f"Campaign '{selected_campaign}' deleted successfully!")
+                                st.cache_data.clear()
+                                import time
+                                time.sleep(2)
+                                st.rerun()
+                            else:
+                                st.error("Failed to delete campaign.")
+                    else:
+                        st.error("Campaign ID not found.")
+
     # --- Apply Filters to Data ---
     
     # Store original data for some comparisons
@@ -138,6 +166,32 @@ def render_linkedin_dashboard():
          metrics['replies'] = filtered_replies
          if metrics['sent_messages'] > 0:
              metrics['reply_rate'] = (filtered_replies / metrics['sent_messages'] * 100)
+
+    # Calculate Interested Metrics for KPIs
+    metrics['interested'] = 0
+    metrics['interested_reply_rate'] = 0.0
+
+    metrics['objection'] = 0
+    metrics['objection_reply_rate'] = 0.0
+
+    metrics['revisit'] = 0
+    metrics['revisit_reply_rate'] = 0.0
+
+    metrics['not_interested'] = 0
+    metrics['not_interested_reply_rate'] = 0.0
+    
+    if not leads_df.empty and 'Status' in leads_df.columns:
+        metrics['interested'] = len(leads_df[leads_df['Status'] == 'Interested'])
+        metrics['objection'] = len(leads_df[leads_df['Status'].isin(['Objection', 'Objections'])])
+        metrics['revisit'] = len(leads_df[leads_df['Status'] == 'Revisit Later'])
+        metrics['not_interested'] = len(leads_df[leads_df['Status'] == 'Not Interested'])
+        # Calculate rate based on sent messages (standard denominator for reply rates)
+        if metrics['replies'] > 0:
+             metrics['interested_reply_rate'] = (metrics['interested'] / metrics['replies'] * 100)
+             metrics['objection_reply_rate'] = (metrics['objection'] / metrics['replies'] * 100)
+             metrics['revisit_reply_rate'] = (metrics['revisit'] / metrics['replies'] * 100)
+             metrics['not_interested_reply_rate'] = (metrics['not_interested'] / metrics['replies'] * 100)
+
     
     render_linkedin_kpi_cards(metrics)
     
@@ -157,26 +211,27 @@ def render_linkedin_dashboard():
     
     # Section 2: Top Performers
     st.markdown("## 🏆 Performance Leaders")
-    render_top_recipients(leads_df)
+    render_top_accounts(leads_df)
     
     st.divider()
     
-    # Section 3: Campaign Effectiveness
-    st.markdown("## 📊 Campaign Effectiveness Analysis")
-    render_campaign_effectiveness(campaigns_df, leads_df)
+    # Section 3: Campaign Effectiveness (Styles Removed)
+    # render_campaign_effectiveness(campaigns_df, leads_df)
     
-    st.divider()
+    # st.divider()
     
-    # Section 4: Job Title Analysis
+    # Section 4: Seniority Level Analysis
     if not leads_df.empty and 'job_title' in leads_df.columns:
-        st.markdown("## 💼 Audience Insights")
-        render_job_title_analysis(leads_df)
+        # st.markdown("## 💼 Audience Insights") # Handled inside the function now
+        render_seniority_level_analysis(leads_df)
         st.divider()
     
-    # Section 5: Engagement Timeline
+    from components.linkedin_charts import render_analytics_section
+    
+    # Section 5: Analytics (Replaces Engagement Trends)
     if not leads_df.empty and 'reply_date' in leads_df.columns:
-        st.markdown("## 📈 Engagement Trends")
-        render_engagement_timeline(leads_df)
+        # st.markdown("## 📈 Engagement Trends") # Header moved inside component for better control
+        render_analytics_section(leads_df)
         st.divider()
     
     # Section 6: Detailed Tables
@@ -184,15 +239,15 @@ def render_linkedin_dashboard():
     render_detailed_tables(campaigns_df, leads_df)
     
     # Footer with summary stats
-    st.markdown("---")
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.metric("Total Campaigns", len(campaigns_df))
-    with col2:
-        st.metric("Total Leads", len(leads_df))
-    with col3:
-        total_sent = campaigns_df['sent_connections'].sum() if not campaigns_df.empty else 0
-        st.metric("Connections Sent", f"{int(total_sent):,}")
-    with col4:
-        total_replies = campaigns_df['replies'].sum() if not campaigns_df.empty else 0
-        st.metric("Total Replies", f"{int(total_replies):,}")
+    # st.markdown("---")
+    # col1, col2, col3, col4 = st.columns(4)
+    # with col1:
+    #     st.metric("Total Campaigns", len(campaigns_df))
+    # with col2:
+    #     st.metric("Total Leads", len(leads_df))
+    # with col3:
+    #     total_sent = campaigns_df['sent_connections'].sum() if not campaigns_df.empty else 0
+    #     st.metric("Connections Sent", f"{int(total_sent):,}")
+    # with col4:
+    #     total_replies = campaigns_df['replies'].sum() if not campaigns_df.empty else 0
+    #     st.metric("Total Replies", f"{int(total_replies):,}")

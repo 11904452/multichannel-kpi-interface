@@ -10,7 +10,7 @@ def main():
     # Establish ngrok tunnel
     try:
         # Connect to port 8501 (Streamlit's default)
-        public_url = ngrok.connect(8502).public_url
+        public_url = ngrok.connect(8501).public_url
         print(f"\n========================================================")
         print(f"   PUBLIC URL: {public_url}")
         print(f"========================================================\n")
