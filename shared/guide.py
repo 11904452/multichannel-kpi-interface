@@ -78,56 +78,11 @@ def guide_dialog():
 
 def render_math_guide():
     """
-    Renders the cute robot helper in the sidebar.
+    Renders the math guide button in the sidebar.
     """
-    # Container for the robot helper
+    # Container for the guide button
     with st.container():
-        st.markdown("""<div style="height: 20px;"></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style="height: 10px;"></div>""", unsafe_allow_html=True)
         
-        col1, col2 = st.columns([1, 2])
-        
-        with col1:
-            # Display robot image
-            # Assuming 'assets/robot.png' exists. 
-            # If not, it will fail gracefully or show broken image, 
-            # but we should check or use a placeholder if missing.
-            if os.path.exists("assets/robot.png"):
-                st.image("assets/robot.png", width=80)
-            else:
-                st.write("🤖")
-                
-        with col2:
-            st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-                padding: 12px 16px;
-                border-radius: 16px;
-                border-bottom-left-radius: 4px;
-                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25), 
-                            0 2px 8px rgba(102, 126, 234, 0.2),
-                            inset 0 1px 0 rgba(255, 255, 255, 0.9);
-                border: 2px solid rgba(255, 255, 255, 0.4);
-                font-size: 0.88em;
-                color: #1e293b;
-                margin-left: -10px;
-                margin-bottom: 8px;
-                font-weight: 500;
-                position: relative;
-            ">
-            <div style="
-                position: absolute;
-                left: -8px;
-                bottom: 0;
-                width: 0;
-                height: 0;
-                border-style: solid;
-                border-width: 0 8px 8px 0;
-                border-color: transparent #ffffff transparent transparent;
-            "></div>
-            <b style="color: #667eea; font-size: 1.05em;">Hi there! 👋</b><br>
-            <span style="color: #475569;">Need help with the math?</span>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            if st.button("Open Guide 📘", key="open_math_guide", help="Open the Math Helper Notebook"):
-                guide_dialog()
+        if st.button("📘 Formulae Book", key="open_math_guide", help="Open the Math Helper Notebook", width="stretch"):
+            guide_dialog()

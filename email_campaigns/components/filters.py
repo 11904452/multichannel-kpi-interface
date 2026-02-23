@@ -1,7 +1,7 @@
 import streamlit as st
 from datetime import datetime
 from typing import Tuple, List, Optional
-from utils.date_utils import get_date_range
+from shared.date_utils import get_date_range
 import pandas as pd
 
 def render_filters(campaigns_df: pd.DataFrame) -> Tuple[str, datetime, datetime, List[str]]:
@@ -36,6 +36,7 @@ def render_filters(campaigns_df: pd.DataFrame) -> Tuple[str, datetime, datetime,
             "Last 30 Days",
             "This Month",
             "Last Month",
+            "All Time",
             "Custom Date Range"
         ]
         
@@ -47,14 +48,10 @@ def render_filters(campaigns_df: pd.DataFrame) -> Tuple[str, datetime, datetime,
         
         custom_start, custom_end = None, None
         if selected_date_filter == "Custom Date Range":
-            col1, col2 = st.columns(2)
-            with col1:
-                custom_start = st.date_input("Start Date", datetime.now().date())
-                # specific to datetime conversion if needed, but date_input returns date object
-                custom_start = datetime.combine(custom_start, datetime.min.time())
-            with col2:
-                custom_end = st.date_input("End Date", datetime.now().date())
-                custom_end = datetime.combine(custom_end, datetime.max.time())
+            custom_start = st.date_input("📅 Start Date", datetime.now().date())
+            custom_start = datetime.combine(custom_start, datetime.min.time())
+            custom_end = st.date_input("📅 End Date", datetime.now().date())
+            custom_end = datetime.combine(custom_end, datetime.max.time())
                 
         start_date, end_date = get_date_range(selected_date_filter, custom_start, custom_end)
         
@@ -85,10 +82,10 @@ def render_workspace_filters(campaigns_df: pd.DataFrame) -> str:
     Render workspace filter only for workspace overview tab.
     
     Returns:
-        Selected workspace name
+        Tuple of (selected_workspace, start_date, end_date)
     """
     with st.sidebar:
-        st.header("Filters")
+
         
         # Extract unique workspaces
         workspaces = ["All Workspaces"]
@@ -104,10 +101,40 @@ def render_workspace_filters(campaigns_df: pd.DataFrame) -> str:
             key="workspace_filter"
         )
         
+        # Date Range Filter
+        date_options = [
+            "Today",
+            "This Week",
+            "Last Week",
+            "Last 7 Days",
+            "Last 30 Days",
+            "This Month",
+            "Last Month",
+            "All Time",
+            "Custom Date Range"
+        ]
+        
+        selected_date_filter = st.selectbox(
+            "Date Range",
+            options=date_options,
+            index=3,  # Default: Last 7 Days
+            key="workspace_date_filter"
+        )
+        
+        custom_start, custom_end = None, None
+        if selected_date_filter == "Custom Date Range":
+            custom_start = st.date_input("📅 Start Date", datetime.now().date(), key="ws_custom_start")
+            custom_start = datetime.combine(custom_start, datetime.min.time())
+            custom_end = st.date_input("📅 End Date", datetime.now().date(), key="ws_custom_end")
+            custom_end = datetime.combine(custom_end, datetime.max.time())
+                
+        start_date, end_date = get_date_range(selected_date_filter, custom_start, custom_end)
+
         st.divider()
         st.caption(f"Viewing: {selected_workspace}")
+        st.caption(f"Date Range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
         
-        return selected_workspace
+        return selected_workspace, start_date, end_date
 
 def render_campaign_filters(campaigns_df: pd.DataFrame, workspace: Optional[str] = None, on_change: Optional[callable] = None) -> Tuple[str, datetime, datetime]:
     """
@@ -122,7 +149,7 @@ def render_campaign_filters(campaigns_df: pd.DataFrame, workspace: Optional[str]
         Tuple of (selected_campaign, start_date, end_date)
     """
     with st.sidebar:
-        st.header("Filters")
+
         
         # Filter campaigns by workspace if provided
         filtered_campaigns_df = campaigns_df
@@ -165,6 +192,7 @@ def render_campaign_filters(campaigns_df: pd.DataFrame, workspace: Optional[str]
             "Last 30 Days",
             "This Month",
             "Last Month",
+            "All Time",
             "Custom Date Range"
         ]
         
@@ -177,13 +205,10 @@ def render_campaign_filters(campaigns_df: pd.DataFrame, workspace: Optional[str]
         
         custom_start, custom_end = None, None
         if selected_date_filter == "Custom Date Range":
-            col1, col2 = st.columns(2)
-            with col1:
-                custom_start = st.date_input("Start Date", datetime.now().date(), key="start_date")
-                custom_start = datetime.combine(custom_start, datetime.min.time())
-            with col2:
-                custom_end = st.date_input("End Date", datetime.now().date(), key="end_date")
-                custom_end = datetime.combine(custom_end, datetime.max.time())
+            custom_start = st.date_input("📅 Start Date", datetime.now().date(), key="start_date")
+            custom_start = datetime.combine(custom_start, datetime.min.time())
+            custom_end = st.date_input("📅 End Date", datetime.now().date(), key="end_date")
+            custom_end = datetime.combine(custom_end, datetime.max.time())
                 
         start_date, end_date = get_date_range(selected_date_filter, custom_start, custom_end)
         

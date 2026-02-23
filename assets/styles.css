@@ -1,0 +1,445 @@
+/* Import modern font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* Global font and smoothing */
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Main container with sidebar-matched background */
+.main {
+    background: linear-gradient(180deg, #667eea 0%, #9b59dc 100%);
+    padding: 2rem;
+    min-height: 100vh;
+    background-attachment: fixed;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* Glassmorphism container for content */
+/* Modern card container for content */
+.block-container {
+    background: rgb(255, 253, 253);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    color: #1e293b !important;
+}
+
+/* Ensure all text elements in main content are dark */
+.block-container p,
+.block-container span,
+.block-container label,
+.block-container div {
+    color: #1e293b;
+}
+
+/* Header styling */
+h1 {
+    color: #1e293b !important;
+    font-weight: 800;
+    font-size: 2.4em !important;
+    margin-bottom: 1.5rem !important;
+    letter-spacing: -0.02em;
+}
+
+@keyframes fadeInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+h2,
+h3 {
+    color: #1e293b !important;
+    font-weight: 700;
+    margin-top: 2rem !important;
+    margin-bottom: 1rem !important;
+}
+
+/* Subheader with decorative animated element */
+.stMarkdown h2::before {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    margin-right: 12px;
+    border-radius: 2px;
+    vertical-align: middle;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* Enhanced divider with glow effect */
+hr {
+    margin: 2rem 0;
+    border: none;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.6), transparent);
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.3);
+}
+
+/* Sidebar with glassmorphism */
+[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+}
+
+[data-testid="stSidebar"]>div:first-child {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+}
+
+/* Sidebar text color adjustments */
+[data-testid="stSidebar"] h1,
+[data-testid="stSidebar"] h2,
+[data-testid="stSidebar"] h3,
+[data-testid="stSidebar"] label,
+[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] p,
+[data-testid="stSidebar"] p {
+    color: white !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced button styling with 3D effect */
+.stButton>button {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 0.75rem 2rem;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    position: relative;
+    overflow: hidden;
+}
+
+.stButton>button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s;
+}
+
+.stButton>button:hover::before {
+    left: 100%;
+}
+
+.stButton>button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.stButton>button:active {
+    transform: translateY(-1px);
+}
+
+/* Sidebar button specific styling - pill-shaped like platform selector */
+[data-testid="stSidebar"] .stButton>button {
+    background: rgba(255, 255, 255, 0.15) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 25px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    font-weight: 500 !important;
+    font-size: 0.95em !important;
+    padding: 0.65rem 1.2rem !important;
+    transition: all 0.3s ease !important;
+    text-align: left !important;
+    backdrop-filter: blur(10px) !important;
+}
+
+[data-testid="stSidebar"] .stButton>button:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    color: white !important;
+    transform: translateX(5px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+[data-testid="stSidebar"] .stButton>button:active {
+    transform: translateX(3px) !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Force button text color in sidebar to white */
+[data-testid="stSidebar"] .stButton>button p,
+[data-testid="stSidebar"] .stButton>button span,
+[data-testid="stSidebar"] .stButton>button div {
+    color: white !important;
+}
+
+[data-testid="stSidebar"] .stButton>button:hover p,
+[data-testid="stSidebar"] .stButton>button:hover span,
+[data-testid="stSidebar"] .stButton>button:hover div {
+    color: white !important;
+}
+
+/* Modern tab styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 12px;
+    background-color: transparent;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    background-color: rgba(255, 255, 255, 0.7);
+    border-radius: 10px;
+    padding: 12px 24px;
+    font-weight: 600;
+    border: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.stTabs [aria-selected="true"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+/* Enhanced dataframe with glassmorphism */
+/* Enhanced dataframe */
+.stDataFrame {
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    background: white !important;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Ensure text inside dataframes is dark */
+[data-testid="stDataFrameCells"] {
+    color: #1e293b !important;
+}
+
+/* Plotly chart container with enhanced shadow */
+/* Plotly chart container */
+.js-plotly-plot {
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.js-plotly-plot:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+}
+
+/* Metric cards enhancement */
+[data-testid="stMetric"] {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.7) 100%);
+    backdrop-filter: blur(10px);
+    padding: 1.5rem;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    transition: all 0.3s ease;
+}
+
+[data-testid="stMetric"]:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(102, 126, 234, 0.2);
+}
+
+/* Select box styling */
+.stSelectbox>div>div {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    transition: all 0.3s ease;
+}
+
+.stSelectbox>div>div:hover {
+    border-color: #667eea;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+}
+
+/* ── Cute Calendar / Date Input ───────────────────────── */
+
+/* Input field: pill shape with calendar emoji accent */
+.stDateInput>div>div {
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-radius: 20px !important;
+    border: 2px solid rgba(102, 126, 234, 0.3) !important;
+    transition: all 0.25s ease;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.08);
+}
+
+.stDateInput>div>div:focus-within {
+    border-color: #667eea !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.18) !important;
+    transform: translateY(-1px);
+}
+
+.stDateInput>div>div input {
+    font-size: 0.85rem !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    border-radius: 20px !important;
+}
+
+/* Calendar popup container */
+[data-baseweb="calendar"] {
+    border-radius: 20px !important;
+    box-shadow: 0 16px 48px rgba(102, 126, 234, 0.25),
+        0 4px 16px rgba(0, 0, 0, 0.08) !important;
+    border: 1px solid rgba(102, 126, 234, 0.15) !important;
+    overflow: hidden !important;
+    background: #fff !important;
+    animation: calPop 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes calPop {
+    from {
+        opacity: 0;
+        transform: scale(0.92) translateY(-6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Month / year header */
+[data-baseweb="calendar"] [data-baseweb="month-header"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    border-radius: 18px 18px 0 0 !important;
+    padding: 12px 8px !important;
+}
+
+[data-baseweb="calendar"] [data-baseweb="month-header"] button,
+[data-baseweb="calendar"] [data-baseweb="month-header"] span,
+[data-baseweb="calendar"] [data-baseweb="month-header"] div {
+    color: white !important;
+    font-weight: 700 !important;
+    font-size: 0.9rem !important;
+}
+
+/* Navigation arrows */
+[data-baseweb="calendar"] [aria-label="Previous month"],
+[data-baseweb="calendar"] [aria-label="Next month"] {
+    border-radius: 50% !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    transition: background 0.2s ease !important;
+}
+
+[data-baseweb="calendar"] [aria-label="Previous month"]:hover,
+[data-baseweb="calendar"] [aria-label="Next month"]:hover {
+    background: rgba(255, 255, 255, 0.38) !important;
+}
+
+/* Weekday labels */
+[data-baseweb="calendar"] [data-baseweb="calendar-month"] div[aria-hidden="true"] {
+    color: #764ba2 !important;
+    font-weight: 700 !important;
+    font-size: 0.72rem !important;
+    letter-spacing: 0.05em !important;
+}
+
+/* Day cells */
+[data-baseweb="calendar"] button[data-baseweb="calendar-day"] {
+    border-radius: 50% !important;
+    font-size: 0.82rem !important;
+    font-weight: 500 !important;
+    color: #374151 !important;
+    transition: all 0.15s ease !important;
+    margin: 1px !important;
+}
+
+[data-baseweb="calendar"] button[data-baseweb="calendar-day"]:hover {
+    background: linear-gradient(135deg, #ede9fe, #ddd6fe) !important;
+    color: #4c1d95 !important;
+    transform: scale(1.12) !important;
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2) !important;
+}
+
+/* Selected day — gradient pill */
+[data-baseweb="calendar"] button[aria-selected="true"] {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.45) !important;
+    transform: scale(1.1) !important;
+}
+
+/* Today highlight */
+[data-baseweb="calendar"] button[data-today="true"] {
+    border: 2px solid #667eea !important;
+    font-weight: 700 !important;
+    color: #667eea !important;
+}
+
+/* Outside-month days */
+[data-baseweb="calendar"] button[data-outside-month="true"] {
+    opacity: 0.3 !important;
+}
+
+/* Smooth scroll behavior */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Loading animation enhancement */
+.stSpinner>div {
+    border-top-color: #667eea !important;
+}
+
+/* Info/Warning/Error boxes with glassmorphism */
+.stAlert {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    border-left: 4px solid;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}

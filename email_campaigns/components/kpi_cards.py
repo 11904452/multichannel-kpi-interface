@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 from typing import Dict
-from utils.metrics import calculate_percentage_change
+from email_campaigns.services.metrics import calculate_percentage_change
 
 def render_custom_metric(label, value_primary, value_secondary=None, bg_color="#ffffff", icon="📊"):
     """
@@ -17,15 +17,15 @@ def render_custom_metric(label, value_primary, value_secondary=None, bg_color="#
 
     # Create gradient overlay based on bg_color
     gradient_map = {
-        "#E8F0FE": "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-        "#F3E8FD": "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+        "#E8F0FE": "linear-gradient(135deg, #6C63FF 0%, #a78bfa 100%)",
+        "#F3E8FD": "linear-gradient(135deg, #a78bfa 0%, #38bdf8 100%)",
         "#E4F7FB": "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
         "#FCE8E6": "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
         "#E6F4EA": "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
         "#FEF7E0": "linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%)",
     }
     
-    gradient = gradient_map.get(bg_color, "linear-gradient(135deg, #667eea 0%, #764ba2 100%)")
+    gradient = gradient_map.get(bg_color, "linear-gradient(135deg, #6C63FF 0%, #a78bfa 100%)")
 
     st.markdown(f"""
     <style>
@@ -65,6 +65,7 @@ def render_custom_metric(label, value_primary, value_secondary=None, bg_color="#
     
     .{class_id}:hover::before {{
         width: 4px;
+        background: {gradient};
     }}
     
     .{class_id} .icon {{

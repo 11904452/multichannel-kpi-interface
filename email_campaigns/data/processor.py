@@ -50,11 +50,12 @@ class DataProcessor:
             'sender_inbox_esp': ['Sender Inbox ESP'],
             'lead_esp': ['Lead ESP'],
             'campaign_id': ['Campaign ID', 'campaign_id'], # Ensure snake_case
-            'sequence_num': ['Sequence Num', 'sequence_num']
+            'sequence_num': ['Sequence Num', 'sequence_num'],
+            'unique_replies': ['Unique Replies', 'unique_replies']
         })
         
         # Ensure required columns exist
-        required_cols = ['Date', 'status', 'bounce_type', 'is_human_reply', 'replies', 'sender_inbox_esp', 'lead_esp']
+        required_cols = ['Date', 'status', 'bounce_type', 'is_human_reply', 'replies', 'sender_inbox_esp', 'lead_esp', 'unique_replies']
         for col in required_cols:
             if col not in df.columns:
                 df[col] = None
@@ -62,6 +63,7 @@ class DataProcessor:
         # Boolean/Numeric conversions
         df['is_human_reply'] = pd.to_numeric(df['is_human_reply'], errors='coerce').fillna(0)
         df['replies'] = pd.to_numeric(df['replies'], errors='coerce').fillna(0)
+        df['unique_replies'] = pd.to_numeric(df['unique_replies'], errors='coerce').fillna(0)
         
         # Ensure ID columns are numeric for joining
         id_cols = ['sequence_num', 'campaign_id']
@@ -131,7 +133,7 @@ class DataProcessor:
                 interested_sementic=('status', lambda x: x.isin(['Interested']).sum()),
                 not_interested=('status', lambda x: (x == 'Not Interested').sum()),
                 automated_replies=('status', lambda x: (x == 'Automated Reply').sum()),
-                total_replies=('unique_replies',lambda x: (x > 0).sum()),
+                total_replies=('unique_replies',lambda x: (x >= 1).sum()),
                 objection=('status', lambda x: x.isin(['Objection', 'Objections']).sum()),
                 
             ).reset_index()

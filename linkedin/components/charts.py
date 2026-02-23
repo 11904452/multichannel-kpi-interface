@@ -18,15 +18,27 @@ def render_lead_status_analysis(leads_df):
         # Pie chart of status distribution
         status_counts = leads_df['Status'].value_counts()
         
+        # Build color map: green for Interested, RdBu palette for rest
+        rdbu = px.colors.sequential.RdBu
+        other_statuses = [s for s in status_counts.index if s != 'Interested']
+        status_color_map = {'Interested': '#059669'}
+        for i, s in enumerate(other_statuses):
+            status_color_map[s] = rdbu[i % len(rdbu)]
+
         fig = px.pie(
             values=status_counts.values,
             names=status_counts.index,
             title="Lead Status Distribution",
-            hole=0.4,
-            color_discrete_sequence=px.colors.sequential.RdBu
+            hole=0.7,
+            color=status_counts.index,
+            color_discrete_map=status_color_map
         )
-        fig.update_traces(textposition='inside', textinfo='percent+label')
-        fig.update_layout(height=400)
+        fig.update_traces(textposition='inside', textinfo='percent')
+        fig.update_layout(
+            height=300, 
+            margin=dict(l=30, r=30, t=60, b=30),
+            title=dict(font=dict(size=14))
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
@@ -42,7 +54,7 @@ def render_lead_status_analysis(leads_df):
                  delta=f"{(not_interested/total_leads*100):.1f}%" if total_leads > 0 else "0%",
                  delta_color="inverse")
 
-def render_top_accounts(leads_df):
+def render_top_accounts(leads_df, accounts_df=None):
     """Render top performing accounts analysis"""
     if leads_df.empty or 'account_name' not in leads_df.columns:
         st.info("No account data available")
@@ -50,8 +62,22 @@ def render_top_accounts(leads_df):
     
     st.subheader("🏆 Top Performing Accounts")
     
+    # Filter out deleted accounts if accounts_df is provided
+    filtered_leads = leads_df.copy()
+    if accounts_df is not None and not accounts_df.empty and 'account_id' in accounts_df.columns:
+        # Filter accounts where status is NOT 'DELETED'
+        active_accounts = accounts_df[accounts_df['status'].str.upper() != 'DELETED']
+        active_account_ids = active_accounts['account_id'].astype(str).unique()
+        
+        # Filter leads to only include those from active accounts
+        filtered_leads = filtered_leads[filtered_leads['account_id'].astype(str).isin(active_account_ids)]
+        
+    if filtered_leads.empty:
+        st.info("No active account data available")
+        return
+
     # Aggregate by account
-    account_stats = leads_df.groupby('account_name').agg({
+    account_stats = filtered_leads.groupby('account_name').agg({
         'lead_id': 'count',
         'replies': 'sum',
         'Status': lambda x: (x == 'Interested').sum()
@@ -102,8 +128,13 @@ def render_top_accounts(leads_df):
             color_continuous_scale='Viridis',
             text='Interested Leads'
         )
-        fig.update_traces(texttemplate='%{text}', textposition='outside')
-        fig.update_layout(height=dynamic_height, margin=dict(t=50, b=50), yaxis={'categoryorder': 'total ascending'})
+        fig.update_traces(texttemplate='%{text}', textposition='outside', marker_line_width=0, marker_cornerradius=8)
+        fig.update_layout(
+            height=dynamic_height, 
+            margin=dict(l=20, r=20, t=50, b=30), 
+            yaxis={'categoryorder': 'total ascending'},
+            title=dict(font=dict(size=14))
+        )
         
         st.plotly_chart(fig, use_container_width=True)
     
@@ -163,7 +194,11 @@ def render_campaign_effectiveness(campaigns_df, leads_df):
             title="Campaign Efficiency Matrix",
             labels={'acceptance_rate': 'Acceptance Rate (%)', 'reply_rate': 'Reply Rate (%)'}
         )
-        fig.update_layout(height=400)
+        fig.update_layout(
+            height=300, 
+            margin=dict(l=20, r=20, t=60, b=20),
+            title=dict(font=dict(size=14))
+        )
         st.plotly_chart(fig, use_container_width=True)
     
     with col2:
@@ -195,8 +230,10 @@ def render_campaign_effectiveness(campaigns_df, leads_df):
             fig.update_layout(
                 title="Performance by Outreach Type",
                 barmode='group',
-                height=400,
-                yaxis_title="Rate (%)"
+                height=300,
+                margin=dict(l=20, r=20, t=60, b=20),
+                yaxis_title="Rate (%)",
+                title_font=dict(size=14)
             )
             st.plotly_chart(fig, use_container_width=True)
 
@@ -223,32 +260,55 @@ def map_job_title_to_seniority(title):
     return "Entry Level"
 
 def render_seniority_level_analysis(leads_df):
-    """Render seniority level analysis based on job titles"""
-    if leads_df.empty or 'job_title' not in leads_df.columns:
+    """Render seniority level analysis using the 'Seniority' column from replied leads."""
+
+    # Require the direct Seniority column; fall back to job_title mapping if absent
+    has_seniority_col = 'Seniority' in leads_df.columns
+    has_job_title_col = 'job_title' in leads_df.columns
+
+    if leads_df.empty or (not has_seniority_col and not has_job_title_col):
         return
-    
+
     st.subheader("💼 Seniority Level Insights")
-    
-    # Create a copy to avoid SettingWithCopyWarning
+
     df_analysis = leads_df.copy()
-    
-    # Map job titles to seniority
-    df_analysis['Seniority'] = df_analysis['job_title'].apply(map_job_title_to_seniority)
-    
+
+    if has_seniority_col:
+        # Primary path: use the Seniority column directly
+        df_analysis['_seniority'] = (
+            df_analysis['Seniority']
+            .fillna('Unknown')
+            .astype(str)
+            .str.strip()
+            .replace('', 'Unknown')
+        )
+    else:
+        # Fallback: derive from job_title keywords
+        df_analysis['_seniority'] = df_analysis['job_title'].apply(map_job_title_to_seniority)
+
+    # Drop rows with no meaningful seniority
+    df_analysis = df_analysis[df_analysis['_seniority'].str.lower() != 'unknown']
+
+    if df_analysis.empty:
+        st.info("No seniority data available for replied leads.")
+        return
+
     # Aggregate stats by Seniority
-    seniority_stats = df_analysis.groupby('Seniority').agg({
-        'lead_id': 'count',
-        'Status': lambda x: (x == 'Interested').sum()
-    }).reset_index()
-    
+    seniority_stats = df_analysis.groupby('_seniority').agg(
+        Total_Leads=('lead_id', 'count'),
+        Interested=('Status', lambda x: (x == 'Interested').sum())
+    ).reset_index()
+
     seniority_stats.columns = ['Seniority Level', 'Total Leads', 'Interested']
-    seniority_stats['Interest Rate %'] = (seniority_stats['Interested'] / seniority_stats['Total Leads'] * 100).round(2)
-    
+    seniority_stats['Interest Rate %'] = (
+        seniority_stats['Interested'] / seniority_stats['Total Leads'] * 100
+    ).round(2)
+
     # Sort by Interest Rate for the chart
     seniority_stats = seniority_stats.sort_values('Interest Rate %', ascending=True)
-    
+
     col1, col2 = st.columns([2, 1])
-    
+
     with col1:
         fig = px.bar(
             seniority_stats,
@@ -260,17 +320,24 @@ def render_seniority_level_analysis(leads_df):
             color_continuous_scale='Blues',
             text='Interest Rate %'
         )
-        fig.update_traces(texttemplate='%{text:.1f}%', textposition='outside')
-        fig.update_layout(height=400)
+        fig.update_traces(
+            texttemplate='%{text:.1f}%',
+            textposition='outside',
+            marker_line_width=0,
+            marker_cornerradius=8
+        )
+        fig.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=60, b=20),
+            title=dict(font=dict(size=14))
+        )
         st.plotly_chart(fig, use_container_width=True)
-    
+
     with col2:
-        # Summary stats
         st.markdown("### Key Insights")
-        
-        # Sort by Interest Rate descending for insights
+
         top_stats = seniority_stats.sort_values('Interest Rate %', ascending=False)
-        
+
         if not top_stats.empty:
             best_level = top_stats.iloc[0]
             st.markdown(f"""
@@ -278,11 +345,10 @@ def render_seniority_level_analysis(leads_df):
             {best_level['Seniority Level']}  
             *{best_level['Interest Rate %']:.1f}% interest rate*
             """)
-            
-        # Distribution
+
         st.markdown("**Distribution:**")
-        dist = df_analysis['Seniority'].value_counts(normalize=True) * 100
-        for level, pct in dist.head(3).items():
+        dist = df_analysis['_seniority'].value_counts(normalize=True) * 100
+        for level, pct in dist.head(5).items():
             st.markdown(f"- {level}: {pct:.1f}%")
 
 def render_analytics_section(leads_df):
@@ -433,14 +499,14 @@ def render_analytics_section(leads_df):
     # Layout Updates for "High Tech" / Clean Look
     fig.update_layout(
         template='plotly_white',
-        height=350,
-        margin=dict(l=0, r=0, t=20, b=20),
+        height=300,
+        margin=dict(l=10, r=10, t=20, b=10),
         xaxis=dict(
             showgrid=False,
             showline=False,
             zeroline=False,
             tickformat="%b %d",
-            tickfont=dict(color='#94a3b8', size=12),
+            tickfont=dict(color='#94a3b8', size=11),
             fixedrange=True
         ),
         yaxis=dict(
@@ -449,13 +515,13 @@ def render_analytics_section(leads_df):
             gridwidth=1,
             zeroline=False,
             showticklabels=True,
-            tickfont=dict(color='#94a3b8', size=12),
+            tickfont=dict(color='#94a3b8', size=11),
             fixedrange=True
         ),
         hovermode='x unified',
         hoverlabel=dict(
             bgcolor='white',
-            font_size=14,
+            font_size=13,
             font_family="Inter, sans-serif",
             bordercolor=chart_color
         ),
@@ -466,26 +532,30 @@ def render_analytics_section(leads_df):
     
     st.markdown("</div>", unsafe_allow_html=True)
 
-def render_conversion_funnel(campaigns_df, leads_df):
-    """Render enhanced conversion funnel"""
-    st.subheader("🎯 Conversion Funnel")
+def render_conversion_funnel(campaigns_df: pd.DataFrame, leads_df: pd.DataFrame):
+    """Render conversion funnel chart"""
+    
+    st.markdown("### 🎯 Conversion Funnel")
     
     if campaigns_df.empty:
         st.info("No campaign data available")
         return
     
-    # Calculate funnel metrics
     total_sent = campaigns_df['sent_connections'].sum()
     total_accepted = campaigns_df['accepted_connections'].sum()
-    total_messages = campaigns_df['sent_messages'].sum()
-    total_replies = campaigns_df['replies'].sum()
     
+    # Count replied leads: where replies is not null and > 0
+    from linkedin.services.metrics import count_replied_leads, get_replied_leads
+    total_replies = count_replied_leads(leads_df)
+    
+    # Get replied leads and count interested
+    replied_leads_df = get_replied_leads(leads_df)
     interested = 0
-    if not leads_df.empty and 'Status' in leads_df.columns:
-        interested = len(leads_df[leads_df['Status'] == 'Interested'])
+    if not replied_leads_df.empty and 'Status' in replied_leads_df.columns:
+        interested = len(replied_leads_df[replied_leads_df['Status'] == 'Interested'])
     
     funnel_data = pd.DataFrame({
-        'Stage': ['Connections Sent', 'Connections Accepted', 'Replies Received', 'Interested Leads'],
+        'Stage': ['Sent', 'Accepted', 'Replied', 'Interested'],
         'Count': [total_sent, total_accepted, total_replies, interested]
     })
     
@@ -498,7 +568,54 @@ def render_conversion_funnel(campaigns_df, leads_df):
     fig.update_layout(height=400)
     st.plotly_chart(fig, use_container_width=True)
 
-def render_detailed_tables(campaigns_df, leads_df):
+@st.dialog("⚠️ Confirm Deletion")
+def confirm_delete_dialog(campaign_id: str, campaign_name: str, index: int):
+    """Dialog to confirm campaign deletion"""
+    st.markdown(f"""
+        <div style="background-color: #fff3cd; 
+                    border: 1px solid #ffeeba; 
+                    border-radius: 8px; 
+                    padding: 16px; 
+                    margin-bottom: 20px;">
+            <p style="color: #856404; margin: 0; font-size: 16px;">
+                Are you sure you want to delete campaign <strong>"{campaign_name}"</strong>?
+            </p>
+            <p style="color: #856404; margin: 8px 0 0 0; font-size: 14px;">
+                This action cannot be undone and will remove all associated data from the database.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("✅ Yes, Delete", key=f"confirm_del_{campaign_id}_{index}", type="primary", use_container_width=True):
+            # Use the LinkedInCampaignAPI
+            from api.linkedin_api import LinkedInCampaignAPI
+            api = LinkedInCampaignAPI()
+            
+            with st.spinner("Deleting campaign..."):
+                response = api.delete_campaign(str(campaign_id))
+            
+            # Handle case where response might be a string (based on user edits/testing)
+            if isinstance(response, str):
+                st.session_state['delete_success'] = response
+                st.rerun()
+                
+            elif isinstance(response, dict) and response.get('success', False):
+                # Store success message from API
+                st.session_state['delete_success'] = response.get('message', 'Campaign deleted successfully')
+                st.rerun()
+            else:
+                # Handle error
+                error_message = response.get('message', 'Failed to delete campaign') if isinstance(response, dict) else str(response)
+                st.session_state['delete_error'] = error_message
+                st.rerun()
+    
+    with col2:
+        if st.button("❌ Cancel", key=f"cancel_del_{campaign_id}_{index}", use_container_width=True):
+            st.rerun()
+
+def render_detailed_tables(campaigns_df: pd.DataFrame, leads_df: pd.DataFrame):
     """Render detailed data tables with enhanced styling"""
     st.subheader("📋 Detailed Data Tables")
     
@@ -525,6 +642,20 @@ def render_detailed_tables(campaigns_df, leads_df):
     
     with tab1:
         if not campaigns_df.empty:
+            # --- Pre-compute per-campaign stats from leads_df ---
+            if not leads_df.empty and 'campaign_id' in leads_df.columns:
+                # Total leads per campaign (row count)
+                lead_counts = leads_df.groupby('campaign_id').size().rename('total_leads')
+                # Interested leads per campaign
+                interested_counts = (
+                    leads_df[leads_df['Status'] == 'Interested']
+                    .groupby('campaign_id').size()
+                    .rename('interested_count')
+                )
+            else:
+                lead_counts = pd.Series(dtype=int, name='total_leads')
+                interested_counts = pd.Series(dtype=int, name='interested_count')
+
             # Download Button
             csv = campaigns_df.to_csv(index=False).encode('utf-8')
             st.download_button(
@@ -534,61 +665,82 @@ def render_detailed_tables(campaigns_df, leads_df):
                 mime="text/csv",
                 key="download_campaigns"
             )
-            
+
             # Table Header
-            # Layout: Campaign (3), Workspace (2), Status (1), Type (1), Sent (1), Accepted (1), Replies (1), Action (1)
-            c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([3, 1.5, 1, 1, 1, 1, 1, 1])
-            c1.markdown("**Campaign**")
-            c2.markdown("**Workspace**")
-            c3.markdown("**Status**")
-            c4.markdown("**Type**")
-            c5.markdown("**Sent**")
-            c6.markdown("**Acc.**")
-            c7.markdown("**Repl.**")
-            c8.markdown("**Action**")
-            
+            h1, h2, h3, h4, h5, h6, h7, h8, h9, h10 = st.columns(
+                [2.5, 1.3, 1, 0.8, 0.8, 0.85, 0.9, 0.7, 0.8, 0.6]
+            )
+            header_style = "<span style='color: #1e293b; font-weight: 700;'>"
+            h1.markdown(f"{header_style}Campaign</span>", unsafe_allow_html=True)
+            h2.markdown(f"{header_style}Workspace</span>", unsafe_allow_html=True)
+            h3.markdown(f"{header_style}Status</span>", unsafe_allow_html=True)
+            h4.markdown(f"{header_style}Sent</span>", unsafe_allow_html=True)
+            h5.markdown(f"{header_style}Acc.%</span>", unsafe_allow_html=True)
+            h6.markdown(f"{header_style}Reply%</span>", unsafe_allow_html=True)
+            h7.markdown(f"{header_style}Interested %</span>", unsafe_allow_html=True)
+            h8.markdown(f"{header_style}Leads</span>", unsafe_allow_html=True)
+            h9.markdown(f"{header_style}Complete</span>", unsafe_allow_html=True)
+            h10.markdown(f"{header_style}Action</span>", unsafe_allow_html=True)
+
             st.divider()
-            
+
             # Table Rows
-            from data.supabase_client import SupabaseClient
-            
             for index, row in campaigns_df.iterrows():
-                c1, c2, c3, c4, c5, c6, c7, c8 = st.columns([3, 1.5, 1, 1, 1, 1, 1, 1])
-                
+                c1, c2, c3, c4, c5, c6, c7, c8, c9, c10 = st.columns(
+                    [2.5, 1.3, 1, 0.8, 0.8, 0.85, 0.9, 0.7, 0.8, 0.6]
+                )
+                campaign_id = row.get('campaign_id')
+
                 with c1:
                     st.write(row.get('campaign_name', ''))
+
                 with c2:
                     st.write(row.get('workspace_name', ''))
+
                 with c3:
                     status = row.get('Status', '')
-                    # Check if status is 'deleted' (case-insensitive)
                     is_deleted = str(status).lower() == 'deleted' if status else False
-                    
                     if is_deleted:
-                        # Soft red color for text
-                         st.markdown(f"<span style='color: #ef5350; font-weight: 600;'>{status}</span>", unsafe_allow_html=True)
+                        st.markdown(
+                            f"<span style='color: #ef5350; font-weight: 600;'>{status}</span>",
+                            unsafe_allow_html=True
+                        )
                     else:
                         st.write(status)
 
                 with c4:
-                    st.write(row.get('outreach_type', ''))
-                with c5:
                     st.write(f"{int(row.get('sent_connections', 0))}")
-                with c6:
-                    st.write(f"{int(row.get('accepted_connections', 0))}")
-                with c7:
-                    st.write(f"{int(row.get('replies', 0))}")
-                with c8:
-                    if st.button("🗑️", key=f"del_{row.get('campaign_id', index)}", disabled=not is_deleted, help="Delete Campaign"):
-                        client = SupabaseClient()
-                        if client.delete_linkedin_campaign(str(row.get('campaign_id'))):
-                            st.success("Deleted!")
-                            st.rerun()
-                        else:
-                            st.error("Failed")
-                
-                st.divider()
 
+                with c5:
+                    sent = row.get('sent_connections', 0) or 0
+                    accepted = row.get('accepted_connections', 0) or 0
+                    acc_rate = (accepted / sent * 100) if sent > 0 else 0
+                    st.write(f"{acc_rate:.1f}%")
+
+                with c6:
+                    replies = row.get('replies', 0) or 0
+                    sent_msgs = row.get('sent_messages', 0) or 0
+                    rr = (replies / sent_msgs * 100) if sent_msgs > 0 else 0
+                    st.write(f"{rr:.1f}% ({int(replies)})")
+
+                with c7:
+                    int_count = int(interested_counts.get(campaign_id, 0)) if campaign_id in interested_counts.index else 0
+                    int_rate = (int_count / replies * 100) if replies > 0 else 0
+                    st.write(f"{int_rate:.1f}% ({int_count})")
+
+                with c8:
+                    total_leads_count = int(lead_counts.get(campaign_id, 0)) if campaign_id in lead_counts.index else 0
+                    st.write(f"{total_leads_count}")
+
+                with c9:
+                    st.write(f"{int(row.get('complete', 0))}")
+
+                with c10:
+                    campaign_name = row.get('campaign_name', 'Campaign')
+                    if st.button("🗑️", key=f"del_{campaign_id}_{index}", disabled=not is_deleted, help="Delete Campaign"):
+                        confirm_delete_dialog(campaign_id, campaign_name, index)
+
+                st.divider()
     with tab2:
         if not leads_df.empty:
             

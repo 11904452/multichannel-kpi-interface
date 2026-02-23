@@ -132,9 +132,11 @@ def render_sequence_stats(leads_df: pd.DataFrame, sequences_df: pd.DataFrame, ca
                 st.markdown(f"<div class='seq-subject'>{subject}</div>", unsafe_allow_html=True)
 
             # Calculate Stats from leads_df if available
-            # Initialize with step defaults
-            final_interested = step.get('interested', 0)
+            # Initialize with 0
+            final_interested = 0
             final_not_interested = 0
+            final_replies = 0
+            final_bounced = 0
             
             if not leads_df.empty:
                 step_cid = step.get('campaign_id')
@@ -153,20 +155,45 @@ def render_sequence_stats(leads_df: pd.DataFrame, sequences_df: pd.DataFrame, ca
                     
                     if not matches.empty:
                         # Count Interested (Interested, Objection)
-                        final_interested = matches[matches['status'].isin(['Interested', 'Objection', 'Objections'])].shape[0]
+                        # User requested "Interested", typically means purely Interested. 
+                        # However, metrics often group Objection as a positive reply type or distinct.
+                        # I'll include Objection to be safe as "Interested/Objection" is often desired,
+                        # but user list had "Interested, Not interested". 
+                        # I'll stick to 'Interested' + 'Objection' as a safe bet for "Positive/Neutral Response" block 
+                        # OR if user meant specific columns: 'Interested'. 
+                        # Given "take value of replies, Interested, Not interested, Bounced", 
+                        # I will assume "Interested" means the status 'Interested'.
+                        # But wait, previous code gathered Interest + Objection. 
+                        # I will stick to the previous logic for "Is it a positive response?" but maybe label it properly?
+                        # No, I will just count 'Interested'.
+                        final_interested = matches[matches['status'] == 'Interested'].shape[0]
                         
                         # Count Not Interested
                         final_not_interested = matches[matches['status'] == 'Not Interested'].shape[0]
-                except:
+
+                        # Count Replies (Unique)
+                        if 'unique_replies' in matches.columns:
+                             final_replies = (matches['unique_replies'] >= 1).sum()
+                        
+                        # Count Bounced
+                        # Check for bounce_type being present or status being 'Bounced'
+                        # processor.py cleans bounce_type to string.
+                        if 'bounce_type' in matches.columns:
+                            # Count where bounce_type is not empty/null/nan
+                            final_bounced = matches[matches['bounce_type'].str.len() > 0].shape[0]
+                        elif 'status' in matches.columns:
+                             final_bounced = matches[matches['status'] == 'Bounced'].shape[0]
+
+                except Exception:
                     pass
 
             metrics = [
                 ("Sent", sent_count, "📤"),
                 ("Contacted", contacts_count, "👤"),
-                ("Replies", unique_replies, "💬"),
+                ("Replies", final_replies, "💬"),
                 ("Interested", final_interested, "⭐"),
                 ("Not Interested", final_not_interested, "👎"),
-                ("Bounced", bounced, "⚠️")
+                ("Bounced", final_bounced, "⚠️")
             ]
             
             for i, (label, value, icon) in enumerate(metrics):
